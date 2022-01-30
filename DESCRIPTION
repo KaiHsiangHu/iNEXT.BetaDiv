@@ -1,0 +1,23 @@
+Package: iNEXT.BetaDiv
+Type: Package
+Title: Interpolation and Extrapolation for Beta diversity
+Version: 1.0.1
+Author: Anne Chao, KaiHsiang Hu, Y.S. Kao and Z.C. Szu-tu
+Maintainer: K. S. Hu <river19951224@gmail.com>
+Description: iNEXT.BetaDiv provides computing beta diversity for multiple assemblages.
+Depends: R (>= 4.0)
+Imports: tidyverse,
+         magrittr,
+         tidyr,
+         tidytree,
+         ggplot2,
+         abind,
+         ade4,
+         colorRamps,
+         future.apply,
+         iNEXT.3D
+Remotes: AnneChao/iNEXT.3D
+Encoding: UTF-8
+BugReports: https://github.com/KaiHsiangHu/iNEXT.BetaDiv/issues
+LazyData: true
+RoxygenNote: 7.1.1
