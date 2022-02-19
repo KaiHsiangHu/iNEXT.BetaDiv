@@ -8,7 +8,8 @@ iNEXTBetaDiv(
   data,
   q = c(0, 1, 2),
   datatype = "abundance",
-  level,
+  base = "coverage",
+  level = NULL,
   nboot = 20,
   conf = 0.95
 )
@@ -20,6 +21,8 @@ iNEXTBetaDiv(
 \item{q}{a numerical vector specifying the diversity orders. Default is c(0, 1, 2).}
 
 \item{datatype}{data type of input data: individual-based abundance data (\code{datatype = "abundance"}) or species by sampling-units incidence matrix (\code{datatype = "incidence_raw"}) with all entries being 0 (non-detection) or 1 (detection).}
+
+\item{base}{Sample-sized-based rarefaction and extrapolation for gamma and alpha diversity (\code{base = "size"}) or coverage-based rarefaction and extrapolation for gamma, alpha and beta diversity (\code{base = "coverage"}). Default is \code{base = "coverage"}.}
 
 \item{level}{A numerical vector specifying the particular sample coverages (between 0 and 1). Calculating asymptotic diversity if \code{level = 1}. \cr}
 
@@ -34,19 +37,32 @@ A list of seven lists with three-diversity and four-dissimilarity.
 \code{iNEXTBetaDiv}: Interpolation and extrapolation of Beta diversity with order q
 }
 \examples{
-## abundance data
+## abundance data & coverage-based
 data(beetle_abu)
 output1 = iNEXTBetaDiv(data = beetle_abu, datatype = 'abundance', level = seq(0.8, 1, 0.05), 
                        nboot = 20, conf = 0.95)
 output1
 
 
-## incidence data
+## incidence data & coverage-based
 data(beetle_inc)
 output2 = iNEXTBetaDiv(data = beetle_inc, datatype = 'incidence_raw', level = seq(0.8, 1, 0.05),
                        nboot = 20, conf = 0.95)
 output2
 
+
+## abundance data & size-based
+data(beetle_abu)
+output3 = iNEXTBetaDiv(data = beetle_abu, datatype = 'abundance', base = 'size',
+                       nboot = 20, conf = 0.95)
+output3
+
+
+## incidence data & size-based
+data(beetle_inc)
+output4 = iNEXTBetaDiv(data = beetle_inc, datatype = 'incidence_raw', base = 'size',
+                       nboot = 20, conf = 0.95)
+output4
 
 
 }

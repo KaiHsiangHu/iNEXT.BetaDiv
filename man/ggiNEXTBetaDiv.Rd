@@ -42,4 +42,18 @@ ggiNEXTBetaDiv(output2, type = 'B', scale = 'free', main = NULL, transp = 0.4)
 ggiNEXTBetaDiv(output2, type = 'D', scale = 'free', main = NULL, transp = 0.4)
 
 
+#' ## abundance data & size-based
+data(beetle_abu)
+output3 = iNEXTBetaDiv(data = beetle_abu, datatype = 'abundance', base = 'size',
+                       nboot = 20, conf = 0.95)
+ggiNEXTBetaDiv(output3, scale = 'free', main = NULL, transp = 0.4)
+
+
+## incidence data & size-based
+data(beetle_inc)
+output4 = iNEXTBetaDiv(data = beetle_inc, datatype = 'incidence_raw', base = 'size',
+                       nboot = 20, conf = 0.95)
+ggiNEXTBetaDiv(output4, type = 'B', scale = 'free', main = NULL, transp = 0.4)
+
+
 }

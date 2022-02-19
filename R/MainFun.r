@@ -6,6 +6,7 @@
 #' (b) For \code{datatype = "incidence_raw"}, data can be input as a list of several lists (regions)  contained matrices/data.frames (species by sampling units). 
 #' @param q a numerical vector specifying the diversity orders. Default is c(0, 1, 2).
 #' @param datatype data type of input data: individual-based abundance data (\code{datatype = "abundance"}) or species by sampling-units incidence matrix (\code{datatype = "incidence_raw"}) with all entries being 0 (non-detection) or 1 (detection).
+#' @param base Sample-sized-based rarefaction and extrapolation for gamma and alpha diversity (\code{base = "size"}) or coverage-based rarefaction and extrapolation for gamma, alpha and beta diversity (\code{base = "coverage"}). Default is \code{base = "coverage"}.
 #' @param level A numerical vector specifying the particular sample coverages (between 0 and 1). Calculating asymptotic diversity if \code{level = 1}. \cr
 #' @param nboot a positive integer specifying the number of bootstrap replications when assessing sampling uncertainty and constructing confidence intervals. Enter 0 to skip the bootstrap procedures. Default is 20.
 #' @param conf a positive number < 1 specifying the level of confidence interval. Default is 0.95.
@@ -24,23 +25,36 @@
 #' @return A list of seven lists with three-diversity and four-dissimilarity.
 #' 
 #' @examples
-#' ## abundance data
+#' ## abundance data & coverage-based
 #' data(beetle_abu)
 #' output1 = iNEXTBetaDiv(data = beetle_abu, datatype = 'abundance', level = seq(0.8, 1, 0.05), 
 #'                        nboot = 20, conf = 0.95)
 #' output1
 #' 
 #' 
-#' ## incidence data
+#' ## incidence data & coverage-based
 #' data(beetle_inc)
 #' output2 = iNEXTBetaDiv(data = beetle_inc, datatype = 'incidence_raw', level = seq(0.8, 1, 0.05),
 #'                        nboot = 20, conf = 0.95)
 #' output2
 #' 
 #' 
+#' ## abundance data & size-based
+#' data(beetle_abu)
+#' output3 = iNEXTBetaDiv(data = beetle_abu, datatype = 'abundance', base = 'size',
+#'                        nboot = 20, conf = 0.95)
+#' output3
+#' 
+#' 
+#' ## incidence data & size-based
+#' data(beetle_inc)
+#' output4 = iNEXTBetaDiv(data = beetle_inc, datatype = 'incidence_raw', base = 'size',
+#'                        nboot = 20, conf = 0.95)
+#' output4
+#' 
 #' 
 #' @export
-iNEXTBetaDiv = function(data, q = c(0, 1, 2), datatype = 'abundance', level, nboot = 20, conf = 0.95) {
+iNEXTBetaDiv = function(data, q = c(0, 1, 2), datatype = 'abundance', base = "coverage", level = NULL, nboot = 20, conf = 0.95) {
   max_alpha_coverage = F
   if (datatype == 'abundance') {
     
@@ -66,6 +80,47 @@ iNEXTBetaDiv = function(data, q = c(0, 1, 2), datatype = 'abundance', level, nbo
   if (is.null(conf)) conf = 0.95
   tmp = qnorm(1 - (1 - conf)/2)
   
+  if ( is.null(level) & base == 'coverage' ) level = seq(0.7, 1, 0.05) else if ( base == 'size' ) {
+    if ( is.null(level) ) {
+      
+      if (datatype == "abundance") {
+        endpoint <- sapply(data_list, function(x) 2*sum(x))
+      } else if (datatype == "incidence_raw") {
+        endpoint <- sapply(data_list, function(x) 2*ncol(x[[1]]))
+      }
+      
+      level <- lapply(1:length(data_list), function(i) {
+        
+        if(datatype == "abundance") {
+          ni <- sum(data_list[[i]])
+        }else if(datatype == "incidence_raw"){
+          ni <- ncol(data_list[[i]][[1]])
+        }
+        
+        mi <- floor(c(seq(1, ni, length.out = 10), seq(ni+1, endpoint[i], length.out = 10)))
+      })
+      
+    } else {
+      
+      if (class(level) == "numeric" | class(level) == "integer" | class(level) == "double") {
+        level <- list(level = level)
+      }
+      
+      if (length(level) != length(data_list)) level <- lapply(1:length(data_list), function(x) level[[1]])
+      
+      level <- lapply(1:length(data_list), function(i) {
+        
+        if (datatype == "abundance") {
+          ni <- sum(data_list[[i]])
+        } else if (datatype == "incidence_raw"){
+          ni <- ncol(data_list[[i]][[1]])
+        }
+        
+        if( sum(level[[i]] == ni) == 0 ) mi <- sort(c(ni, level[[i]])) else mi <- level[[i]]
+        unique(mi)
+      })
+    }
+  }
   
   for_each_region = function(data, region_name, N) {
     
@@ -339,7 +394,170 @@ iNEXTBetaDiv = function(data, q = c(0, 1, 2), datatype = 'abundance', level, nbo
     
   }
   
-  output = lapply(1:length(data_list), function(i) for_each_region(data = data_list[[i]], region_name = region_names[i], N = Ns[i]))
+  for_each_region.size = function(data, region_name, N, level) {
+    
+    #data
+    if (datatype == 'abundance') {
+      
+      n = sum(data)
+      data_gamma = rowSums(data)
+      data_gamma = data_gamma[data_gamma>0]
+      data_alpha = as.matrix(data) %>% as.vector
+      
+      ref_gamma = n
+      ref_alpha = n
+      
+    }
+    
+    if (datatype == 'incidence_raw') {
+      
+      sampling_units = sapply(data, ncol)
+      if (length(unique(sampling_units)) > 1) stop("unsupported data structure: the sampling units of all regions must be the same.")
+      if (length(unique(sampling_units)) == 1) n = unique(sampling_units)
+      
+      gamma = Reduce('+', data)
+      gamma[gamma>1] = 1
+      data_gamma_raw = gamma
+      data_gamma_freq = c(n, rowSums(gamma))
+      
+      data_alpha_freq = sapply(data, rowSums) %>% c(n, .)
+      
+      
+      data_2D = apply(sapply(data, rowSums), 2, function(x) c(n, x)) %>% as.data.frame
+      
+      ref_gamma = n
+      ref_alpha = n
+      
+    }
+    
+    if (datatype == 'abundance') {
+      
+      gamma = lapply(1:length(level), function(i){
+        estimate3D(as.numeric(data_gamma), diversity = 'TD', q = q, datatype = "abundance", base = "size", level = level[i], nboot = 0)
+      }) %>% do.call(rbind,.)
+      
+      alpha = lapply(1:length(level), function(i){
+        estimate3D(as.numeric(data_alpha), diversity = 'TD', q = q, datatype = "abundance", base = "size", level = level[i], nboot = 0)
+      }) %>% do.call(rbind,.)
+      
+    }
+    
+    if (datatype == 'incidence_raw') {
+      
+      gamma = lapply(1:length(level), function(i){
+        estimate3D(as.numeric(data_gamma_freq), diversity = 'TD', q = q, datatype = "incidence_freq", base = "size", level = level[i], nboot = 0)
+      }) %>% do.call(rbind,.)
+      
+      alpha = lapply(1:length(level), function(i){
+        estimate3D(data_alpha_freq, diversity = 'TD', q = q, datatype = "incidence_freq", base = "size", level = level[i], nboot = 0)
+      }) %>% do.call(rbind,.)
+      
+    }
+    
+    gamma = (cbind(Size = rep(level, each=length(q)), gamma[,-c(1,2,8,9)]) %>% 
+               mutate(Method = ifelse(Size>=ref_gamma, ifelse(Size == ref_gamma, 'Observed', 'Extrapolated'), 'Interpolated'))
+    )[,c(5,3,2,4,1)] %>% set_colnames(c('Estimate', 'Order', 'Method', 'Coverage_real', 'Size'))
+    
+    
+    alpha = (cbind(Size = rep(level, each = length(q)), alpha[,-c(1,2,8,9)]) %>% 
+               mutate(Method = ifelse(Size >= ref_alpha, ifelse(Size == ref_alpha, 'Observed', 'Extrapolated'), 'Interpolated'))
+    )[,c(5,3,2,4,1)] %>% set_colnames(c('Estimate', 'Order', 'Method', 'Coverage_real', 'Size'))
+    
+    alpha$Estimate = alpha$Estimate / N
+    
+    if(nboot>1){
+      
+      se = future_lapply(1:nboot, function(i){
+        
+        if (datatype == 'abundance') {
+          
+          bootstrap_population = bootstrap_population_multiple_assemblage(data, data_gamma, 'abundance')
+          bootstrap_sample = sapply(1:ncol(data), function(k) rmultinom(n = 1, size = sum(data[,k]), prob = bootstrap_population[,k]))
+          
+          bootstrap_data_gamma = rowSums(bootstrap_sample)
+          bootstrap_data_gamma = bootstrap_data_gamma[bootstrap_data_gamma > 0]
+          bootstrap_data_alpha = as.matrix(bootstrap_sample) %>% as.vector
+          bootstrap_data_alpha = bootstrap_data_alpha[bootstrap_data_alpha > 0]
+          
+          gamma = lapply(1:length(level), function(i){
+            estimate3D(as.numeric(bootstrap_data_gamma), diversity = 'TD', q = q, datatype = "abundance", base = "size", level = level[i], nboot = 0)
+          }) %>% do.call(rbind,.)
+          
+          alpha = lapply(1:length(level), function(i){
+            estimate3D(as.numeric(bootstrap_data_alpha), diversity = 'TD', q = q, datatype = "abundance", base = "size", level = level[i], nboot = 0)
+          }) %>% do.call(rbind,.)
+          
+        }
+        
+        if (datatype == 'incidence_raw') {
+          
+          bootstrap_population = bootstrap_population_multiple_assemblage(data_2D, data_gamma_freq, 'incidence')
+          
+          raw = lapply(1:ncol(bootstrap_population), function(j){
+            
+            lapply(1:nrow(bootstrap_population), function(i) rbinom(n = n, size = 1, prob = bootstrap_population[i,j])) %>% do.call(rbind,.)
+            
+          })
+          
+          gamma = Reduce('+', raw)
+          gamma[gamma > 1] = 1
+          bootstrap_data_gamma_freq = c(n, rowSums(gamma))
+          
+          bootstrap_data_alpha_freq = sapply(raw, rowSums) %>% c(n, .)
+          
+          bootstrap_data_gamma_freq = bootstrap_data_gamma_freq[bootstrap_data_gamma_freq > 0]
+          bootstrap_data_alpha_freq = bootstrap_data_alpha_freq[bootstrap_data_alpha_freq > 0]
+          
+          gamma = lapply(1:length(level), function(i){
+            estimate3D(bootstrap_data_gamma_freq, diversity = 'TD', q = q, datatype = "incidence_freq", base = "size", level = level[i], nboot = 0)
+          }) %>% do.call(rbind,.)
+          
+          alpha = lapply(1:length(level), function(i){
+            estimate3D(bootstrap_data_alpha_freq, diversity = 'TD', q = q, datatype = "incidence_freq", base = "size", level = level[i], nboot = 0)
+          }) %>% do.call(rbind,.)
+          
+        }
+        
+        gamma = gamma$qD
+        
+        alpha = alpha$qD
+        alpha = alpha / N
+        
+        cbind(gamma, alpha) %>% as.matrix
+        
+      }) %>% abind(along = 3) %>% apply(1:2, sd)
+      
+    } else {
+      
+      se = matrix(0, ncol = 7, nrow = nrow(beta))
+      colnames(se) = c("gamma", "alpha")
+      se = as.data.frame(se)
+      
+    }
+    
+    se = as.data.frame(se)
+    
+    gamma = gamma %>% mutate(s.e. = se$gamma,
+                             LCL = Estimate - tmp * se$gamma,
+                             UCL = Estimate + tmp * se$gamma,
+                             Region = region_name)
+    
+    alpha = alpha %>% mutate(s.e. = se$alpha,
+                             LCL = Estimate - tmp * se$alpha,
+                             UCL = Estimate + tmp * se$alpha,
+                             Region = region_name)
+    
+    if (datatype == 'incidence_raw') {
+      colnames(gamma)[colnames(gamma) == 'Size'] = 'nT'
+      colnames(alpha)[colnames(alpha) == 'Size'] = 'nT'
+    }
+    
+    list(gamma = gamma, alpha = alpha)
+    
+  }
+  
+  if (base == 'coverage') output = lapply(1:length(data_list), function(i) for_each_region(data = data_list[[i]], region_name = region_names[i], N = Ns[i]))
+  if (base == 'size') output = lapply(1:length(data_list), function(i) for_each_region.size(data = data_list[[i]], region_name = region_names[i], N = Ns[i], level = level[[i]]))
   names(output) = region_names
   
   return(output)
@@ -379,48 +597,177 @@ iNEXTBetaDiv = function(data, q = c(0, 1, 2), datatype = 'abundance', level, nbo
 #' ggiNEXTBetaDiv(output2, type = 'D', scale = 'free', main = NULL, transp = 0.4)
 #' 
 #' 
+#' #' ## abundance data & size-based
+#' data(beetle_abu)
+#' output3 = iNEXTBetaDiv(data = beetle_abu, datatype = 'abundance', base = 'size',
+#'                        nboot = 20, conf = 0.95)
+#' ggiNEXTBetaDiv(output3, scale = 'free', main = NULL, transp = 0.4)
+#' 
+#' 
+#' ## incidence data & size-based
+#' data(beetle_inc)
+#' output4 = iNEXTBetaDiv(data = beetle_inc, datatype = 'incidence_raw', base = 'size',
+#'                        nboot = 20, conf = 0.95)
+#' ggiNEXTBetaDiv(output4, type = 'B', scale = 'free', main = NULL, transp = 0.4)
+#' 
+#' 
 #' @export
 ggiNEXTBetaDiv = function(output, type = 'B', scale = 'free', main = NULL, transp = 0.4){
   
-  if (type == 'B'){
-    
-    gamma = lapply(output, function(y) y[["gamma"]]) %>% do.call(rbind,.) %>% mutate(div_type = "Gamma") %>% as_tibble()
-    alpha = lapply(output, function(y) y[["alpha"]]) %>% do.call(rbind,.) %>% mutate(div_type = "Alpha") %>% as_tibble()
-    beta =  lapply(output, function(y) y[["beta"]])  %>% do.call(rbind,.) %>% mutate(div_type = "Beta")  %>% as_tibble()
-    beta = beta %>% filter(Method != 'Observed')
-    beta[beta == 'Observed_alpha'] = 'Observed'
-    
-    # Dropping out the points extrapolated over double reference size
-    gamma1 = data.frame() ; alpha1 = data.frame() ; beta1 = data.frame()
-    
-    for(i in 1:length(unique(gamma$Region))){
+  if (length(output[[1]]) == 7) {
+    if (type == 'B'){
       
-      Gamma <- gamma %>% filter(Region==unique(gamma$Region)[i]) ; ref_size = unique(Gamma[Gamma$Method=="Observed",]$Size)
-      Gamma = Gamma %>% filter(!(Order==0 & round(Size)>2*ref_size))
+      gamma = lapply(output, function(y) y[["gamma"]]) %>% do.call(rbind,.) %>% mutate(div_type = "Gamma") %>% as_tibble()
+      alpha = lapply(output, function(y) y[["alpha"]]) %>% do.call(rbind,.) %>% mutate(div_type = "Alpha") %>% as_tibble()
+      beta =  lapply(output, function(y) y[["beta"]])  %>% do.call(rbind,.) %>% mutate(div_type = "Beta")  %>% as_tibble()
+      beta = beta %>% filter(Method != 'Observed')
+      beta[beta == 'Observed_alpha'] = 'Observed'
       
-      Alpha <- alpha %>% filter(Region==unique(gamma$Region)[i]) ; Alpha = Alpha %>% filter(!(Order==0 & round(Size)>2*ref_size))
-      Beta <- beta %>% filter(Region==unique(gamma$Region)[i]) ; Beta = Beta %>% filter(!(Order==0 & round(Size)>2*ref_size))
+      # Dropping out the points extrapolated over double reference size
+      gamma1 = data.frame() ; alpha1 = data.frame() ; beta1 = data.frame()
       
-      gamma1 = rbind(gamma1,Gamma) ; alpha1 = rbind(alpha1,Alpha) ; beta1 = rbind(beta1,Beta)
+      for(i in 1:length(unique(gamma$Region))){
+        
+        Gamma <- gamma %>% filter(Region==unique(gamma$Region)[i]) ; ref_size = unique(Gamma[Gamma$Method=="Observed",]$Size)
+        Gamma = Gamma %>% filter(!(Order==0 & round(Size)>2*ref_size))
+        
+        Alpha <- alpha %>% filter(Region==unique(gamma$Region)[i]) ; Alpha = Alpha %>% filter(!(Order==0 & round(Size)>2*ref_size))
+        Beta <- beta %>% filter(Region==unique(gamma$Region)[i]) ; Beta = Beta %>% filter(!(Order==0 & round(Size)>2*ref_size))
+        
+        gamma1 = rbind(gamma1,Gamma) ; alpha1 = rbind(alpha1,Alpha) ; beta1 = rbind(beta1,Beta)
+        
+      }
+      
+      gamma = gamma1 ; alpha = alpha1 ; beta= beta1
+      
+      df = rbind(gamma, alpha, beta)
+      for (i in unique(gamma$Order)) df$Order[df$Order == i] = paste0('q = ', i)
+      df$div_type <- factor(df$div_type, levels = c("Gamma","Alpha","Beta"))
+      
+      id_obs = which(df$Method == 'Observed')
+      
+      for (i in 1:length(id_obs)) {
+        
+        new = df[id_obs[i],]
+        new$level = new$level - 0.0001
+        new$Method = 'Interpolated'
+        
+        newe = df[id_obs[i],]
+        newe$level = newe$level + 0.0001
+        newe$Method = 'Extrapolated'
+        
+        df = rbind(df, new, newe)
+        
+      }
+      
+      ylab = "Taxonomic diversity"
       
     }
     
-    gamma = gamma1 ; alpha = alpha1 ; beta= beta1
+    if (type == 'D'){
+      
+      C = lapply(output, function(y) y[["C"]]) %>% do.call(rbind,.) %>% mutate(div_type = "1-CqN") %>% as_tibble()
+      U = lapply(output, function(y) y[["U"]]) %>% do.call(rbind,.) %>% mutate(div_type = "1-UqN") %>% as_tibble()
+      V = lapply(output, function(y) y[["V"]]) %>% do.call(rbind,.) %>% mutate(div_type = "1-VqN") %>% as_tibble()
+      S = lapply(output, function(y) y[["S"]]) %>% do.call(rbind,.) %>% mutate(div_type = "1-SqN") %>% as_tibble()
+      C = C %>% filter(Method != 'Observed')
+      U = U %>% filter(Method != 'Observed')
+      V = V %>% filter(Method != 'Observed')
+      S = S %>% filter(Method != 'Observed')
+      C[C == 'Observed_alpha'] = U[U == 'Observed_alpha'] = V[V == 'Observed_alpha'] = S[S == 'Observed_alpha'] = 'Observed'
+      
+      # Dropping out the points extrapolated over double reference size
+      c1 = data.frame() ; u1 = data.frame() ; v1 = data.frame() ; s1 = data.frame()
+      
+      for(i in 1:length(unique(C$Region))){
+        
+        CC <- C %>% filter(Region==unique(C$Region)[i]) ; ref_size = unique(CC[CC$Method=="Observed",]$Size)
+        CC = CC %>% filter(!(Order==0 & round(Size)>2*ref_size))
+        
+        UU <- U %>% filter(Region==unique(C$Region)[i]) ; UU = UU %>% filter(!(Order==0 & round(Size)>2*ref_size))
+        VV <- V %>% filter(Region==unique(C$Region)[i]) ; VV = VV %>% filter(!(Order==0 & round(Size)>2*ref_size))
+        SS <- S %>% filter(Region==unique(C$Region)[i]) ; SS = SS %>% filter(!(Order==0 & round(Size)>2*ref_size))
+        
+        c1 = rbind(c1,CC) ; u1 = rbind(u1,UU) ; v1 = rbind(v1,VV) ; s1 = rbind(s1,SS)
+        
+      }
+      
+      C = c1 ; U = u1 ; V = v1 ; S = s1
+      
+      
+      df = rbind(C, U, V, S)
+      for (i in unique(C$Order)) df$Order[df$Order == i] = paste0('q = ', i)
+      df$div_type <- factor(df$div_type, levels = c("1-CqN", "1-UqN", "1-VqN", "1-SqN"))
+      
+      id_obs = which(df$Method == 'Observed')
+      
+      for (i in 1:length(id_obs)) {
+        
+        new = df[id_obs[i],]
+        new$level = new$level - 0.0001
+        new$Method = 'Interpolated'
+        
+        newe = df[id_obs[i],]
+        newe$level = newe$level + 0.0001
+        newe$Method = 'Extrapolated'
+        
+        df = rbind(df, new, newe)
+        
+      }
+      
+      ylab = "Taxonomic dissimilarity"
+      
+    }
     
-    df = rbind(gamma, alpha, beta)
+    lty = c(Interpolated = "solid", Extrapolated = "dashed")
+    df$Method = factor(df$Method, levels = c('Interpolated', 'Extrapolated', 'Observed'))
+    
+    double_size = unique(df[df$Method == "Observed",]$Size)*2
+    double_extrapolation = df %>% filter(Method == "Extrapolated" & round(Size) %in% double_size)
+    
+    cbPalette <- rev(c("#999999", "#E69F00", "#56B4E9", "#009E73", 
+                       "#330066", "#CC79A7", "#0072B2", "#D55E00"))
+    
+    ggplot(data = df, aes(x = level, y = Estimate, col = Region)) +
+      geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = Region, col = NULL), alpha=transp) + 
+      geom_line(data = subset(df, Method!='Observed'), aes(linetype=Method), size=1.1) + scale_linetype_manual(values = lty) +
+      # geom_line(lty=2) + 
+      geom_point(data = subset(df, Method == 'Observed' & div_type == "Gamma"), shape = 19, size = 3) + 
+      geom_point(data = subset(df, Method == 'Observed' & div_type != "Gamma"), shape = 1, size = 3, stroke = 1.5)+
+      geom_point(data = subset(double_extrapolation, div_type == "Gamma"), shape = 17, size = 3) + 
+      geom_point(data = subset(double_extrapolation, div_type != "Gamma"), shape = 2, size = 3, stroke = 1.5) + 
+      scale_colour_manual(values = cbPalette) + 
+      scale_fill_manual(values = cbPalette) + 
+      facet_grid(div_type ~ Order, scales = scale) +
+      theme_bw() + 
+      theme(legend.position = "bottom", legend.title = element_blank()) +
+      labs(x = 'Sample coverage', y = ylab, title = main)
+    
+  } else if (length(output[[1]]) == 2){
+    
+    gamma = lapply(output, function(y) y[["gamma"]]) %>% do.call(rbind,.) %>% mutate(div_type = "Gamma") %>% as_tibble()
+    alpha = lapply(output, function(y) y[["alpha"]]) %>% do.call(rbind,.) %>% mutate(div_type = "Alpha") %>% as_tibble()
+    
+    if ('nT' %in% colnames(gamma)) {
+      xlab = 'Number of sampling units'
+      colnames(gamma)[colnames(gamma) == 'nT'] = 'Size'
+      colnames(alpha)[colnames(alpha) == 'nT'] = 'Size'
+    } else xlab = 'Number of individuals'
+    
+    df = rbind(gamma, alpha)
     for (i in unique(gamma$Order)) df$Order[df$Order == i] = paste0('q = ', i)
-    df$div_type <- factor(df$div_type, levels = c("Gamma","Alpha","Beta"))
+    df$div_type <- factor(df$div_type, levels = c("Gamma","Alpha"))
     
     id_obs = which(df$Method == 'Observed')
     
     for (i in 1:length(id_obs)) {
       
       new = df[id_obs[i],]
-      new$level = new$level - 0.0001
+      new$Size = new$Size - 0.0001
       new$Method = 'Interpolated'
       
       newe = df[id_obs[i],]
-      newe$level = newe$level + 0.0001
+      newe$Size = newe$Size + 0.0001
       newe$Method = 'Extrapolated'
       
       df = rbind(df, new, newe)
@@ -429,86 +776,26 @@ ggiNEXTBetaDiv = function(output, type = 'B', scale = 'free', main = NULL, trans
     
     ylab = "Taxonomic diversity"
     
+    lty = c(Interpolated = "solid", Extrapolated = "dashed")
+    df$Method = factor(df$Method, levels = c('Interpolated', 'Extrapolated', 'Observed'))
+    
+    double_size = unique(df[df$Method == "Observed",]$Size)*2
+    double_extrapolation = df %>% filter(Method == "Extrapolated" & round(Size) %in% double_size)
+    
+    ggplot(data = df, aes(x = Size, y = Estimate, col = Region)) +
+      geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = Region, col = NULL), alpha=transp) + 
+      geom_line(data = subset(df, Method!='Observed'), aes(linetype=Method), size=1.1) + scale_linetype_manual(values = lty) +
+      # geom_line(lty=2) + 
+      geom_point(data = subset(df, Method == 'Observed' & div_type == "Gamma"), shape = 19, size = 3) + 
+      geom_point(data = subset(df, Method == 'Observed' & div_type != "Gamma"), shape = 1, size = 3, stroke = 1.5)+
+      geom_point(data = subset(double_extrapolation, div_type == "Gamma"), shape = 17, size = 3) + 
+      geom_point(data = subset(double_extrapolation, div_type != "Gamma"), shape = 2, size = 3, stroke = 1.5) + 
+      facet_grid(div_type ~ Order, scales = scale) +
+      theme_bw() + 
+      theme(legend.position = "bottom", legend.title = element_blank()) +
+      labs(x = xlab, y = ylab, title = main)
   }
   
-  if (type == 'D'){
-    
-    C = lapply(output, function(y) y[["C"]]) %>% do.call(rbind,.) %>% mutate(div_type = "1-CqN") %>% as_tibble()
-    U = lapply(output, function(y) y[["U"]]) %>% do.call(rbind,.) %>% mutate(div_type = "1-UqN") %>% as_tibble()
-    V = lapply(output, function(y) y[["V"]]) %>% do.call(rbind,.) %>% mutate(div_type = "1-VqN") %>% as_tibble()
-    S = lapply(output, function(y) y[["S"]]) %>% do.call(rbind,.) %>% mutate(div_type = "1-SqN") %>% as_tibble()
-    C = C %>% filter(Method != 'Observed')
-    U = U %>% filter(Method != 'Observed')
-    V = V %>% filter(Method != 'Observed')
-    S = S %>% filter(Method != 'Observed')
-    C[C == 'Observed_alpha'] = U[U == 'Observed_alpha'] = V[V == 'Observed_alpha'] = S[S == 'Observed_alpha'] = 'Observed'
-    
-    # Dropping out the points extrapolated over double reference size
-    c1 = data.frame() ; u1 = data.frame() ; v1 = data.frame() ; s1 = data.frame()
-    
-    for(i in 1:length(unique(C$Region))){
-      
-      CC <- C %>% filter(Region==unique(C$Region)[i]) ; ref_size = unique(CC[CC$Method=="Observed",]$Size)
-      CC = CC %>% filter(!(Order==0 & round(Size)>2*ref_size))
-      
-      UU <- U %>% filter(Region==unique(C$Region)[i]) ; UU = UU %>% filter(!(Order==0 & round(Size)>2*ref_size))
-      VV <- V %>% filter(Region==unique(C$Region)[i]) ; VV = VV %>% filter(!(Order==0 & round(Size)>2*ref_size))
-      SS <- S %>% filter(Region==unique(C$Region)[i]) ; SS = SS %>% filter(!(Order==0 & round(Size)>2*ref_size))
-      
-      c1 = rbind(c1,CC) ; u1 = rbind(u1,UU) ; v1 = rbind(v1,VV) ; s1 = rbind(s1,SS)
-      
-    }
-    
-    C = c1 ; U = u1 ; V = v1 ; S = s1
-    
-    
-    df = rbind(C, U, V, S)
-    for (i in unique(C$Order)) df$Order[df$Order == i] = paste0('q = ', i)
-    df$div_type <- factor(df$div_type, levels = c("1-CqN", "1-UqN", "1-VqN", "1-SqN"))
-    
-    id_obs = which(df$Method == 'Observed')
-    
-    for (i in 1:length(id_obs)) {
-      
-      new = df[id_obs[i],]
-      new$level = new$level - 0.0001
-      new$Method = 'Interpolated'
-      
-      newe = df[id_obs[i],]
-      newe$level = newe$level + 0.0001
-      newe$Method = 'Extrapolated'
-      
-      df = rbind(df, new, newe)
-      
-    }
-    
-    ylab = "Taxonomic dissimilarity"
-    
-  }
-  
-  lty = c(Interpolated = "solid", Extrapolated = "dashed")
-  df$Method = factor(df$Method, levels = c('Interpolated', 'Extrapolated', 'Observed'))
-  
-  double_size = unique(df[df$Method == "Observed",]$Size)*2
-  double_extrapolation = df %>% filter(Method == "Extrapolated" & round(Size) %in% double_size)
-  
-  cbPalette <- rev(c("#999999", "#E69F00", "#56B4E9", "#009E73", 
-                     "#330066", "#CC79A7", "#0072B2", "#D55E00"))
-  
-  ggplot(data = df, aes(x = level, y = Estimate, col = Region)) +
-    geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = Region, col = NULL), alpha=transp) + 
-    geom_line(data = subset(df, Method!='Observed'), aes(linetype=Method), size=1.1) + scale_linetype_manual(values = lty) +
-    # geom_line(lty=2) + 
-    geom_point(data = subset(df, Method == 'Observed' & div_type == "Gamma"), shape = 19, size = 3) + 
-    geom_point(data = subset(df, Method == 'Observed' & div_type != "Gamma"), shape = 1, size = 3, stroke = 1.5)+
-    geom_point(data = subset(double_extrapolation, div_type == "Gamma"), shape = 17, size = 3) + 
-    geom_point(data = subset(double_extrapolation, div_type != "Gamma"), shape = 2, size = 3, stroke = 1.5) + 
-    scale_colour_manual(values = cbPalette) + 
-    scale_fill_manual(values = cbPalette) + 
-    facet_grid(div_type ~ Order, scales = scale) +
-    theme_bw() + 
-    theme(legend.position = "bottom", legend.title = element_blank()) +
-    labs(x = 'Sample coverage', y = ylab, title = main)
 }
 
 
