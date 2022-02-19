@@ -97,7 +97,7 @@ iNEXTBetaDiv = function(data, q = c(0, 1, 2), datatype = 'abundance', base = "co
           ni <- ncol(data_list[[i]][[1]])
         }
         
-        mi <- floor(c(seq(1, ni, length.out = 10), seq(ni+1, endpoint[i], length.out = 10)))
+        mi <- floor(c(seq(1, ni-1, length.out = 9), ni, seq(ni+1, endpoint[i], length.out = 9)))
       })
       
     } else {
