@@ -39,14 +39,14 @@ A list of seven lists with three-diversity and four-dissimilarity.
 \examples{
 ## abundance data & coverage-based
 data(beetle_abu)
-output1 = iNEXTBetaDiv(data = beetle_abu, datatype = 'abundance', level = seq(0.8, 1, 0.05), 
+output1 = iNEXTBetaDiv(data = beetle_abu, datatype = 'abundance',
                        nboot = 20, conf = 0.95)
 output1
 
 
 ## incidence data & coverage-based
 data(beetle_inc)
-output2 = iNEXTBetaDiv(data = beetle_inc, datatype = 'incidence_raw', level = seq(0.8, 1, 0.05),
+output2 = iNEXTBetaDiv(data = beetle_inc, datatype = 'incidence_raw',
                        nboot = 20, conf = 0.95)
 output2
 

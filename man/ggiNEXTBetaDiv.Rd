@@ -24,36 +24,36 @@ a figure for Beta diversity or dissimilarity diversity.
 \code{ggiNEXTBetaDiv}: ggplot for Interpolation and extrapolation of Beta diversity with order q
 }
 \examples{
-## abundance data
+## abundance data & coverage-based
 data(beetle_abu)
-output1 = iNEXTBetaDiv(data = beetle_abu, datatype = 'abundance', level = seq(0.8, 1, 0.05), 
-                       nboot = 20)
+output1 = iNEXTBetaDiv(data = beetle_abu, datatype = 'abundance', 
+                       nboot = 20, conf = 0.95)
 
 ggiNEXTBetaDiv(output1, type = 'B', scale = 'free', main = NULL, transp = 0.4)
 ggiNEXTBetaDiv(output1, type = 'D', scale = 'free', main = NULL, transp = 0.4)
 
 
-## incidence data
+## incidence data & coverage-based
 data(beetle_inc)
-output2 = iNEXTBetaDiv(data = beetle_inc, datatype = 'incidence_raw', level = seq(0.8, 1, 0.05),
+output2 = iNEXTBetaDiv(data = beetle_inc, datatype = 'incidence_raw', 
                        nboot = 20, conf = 0.95)
 
 ggiNEXTBetaDiv(output2, type = 'B', scale = 'free', main = NULL, transp = 0.4)
 ggiNEXTBetaDiv(output2, type = 'D', scale = 'free', main = NULL, transp = 0.4)
 
 
-#' ## abundance data & size-based
+## abundance data & size-based
 data(beetle_abu)
-output3 = iNEXTBetaDiv(data = beetle_abu, datatype = 'abundance', base = 'size',
+output3 = iNEXTBetaDiv(data = beetle_abu, datatype = 'abundance', base = 'size', 
                        nboot = 20, conf = 0.95)
 ggiNEXTBetaDiv(output3, scale = 'free', main = NULL, transp = 0.4)
 
 
 ## incidence data & size-based
 data(beetle_inc)
-output4 = iNEXTBetaDiv(data = beetle_inc, datatype = 'incidence_raw', base = 'size',
+output4 = iNEXTBetaDiv(data = beetle_inc, datatype = 'incidence_raw', base = 'size', 
                        nboot = 20, conf = 0.95)
-ggiNEXTBetaDiv(output4, type = 'B', scale = 'free', main = NULL, transp = 0.4)
+ggiNEXTBetaDiv(output4, scale = 'free', main = NULL, transp = 0.4)
 
 
 }

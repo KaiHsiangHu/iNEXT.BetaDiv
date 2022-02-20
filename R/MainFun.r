@@ -27,14 +27,14 @@
 #' @examples
 #' ## abundance data & coverage-based
 #' data(beetle_abu)
-#' output1 = iNEXTBetaDiv(data = beetle_abu, datatype = 'abundance', level = seq(0.8, 1, 0.05), 
+#' output1 = iNEXTBetaDiv(data = beetle_abu, datatype = 'abundance',
 #'                        nboot = 20, conf = 0.95)
 #' output1
 #' 
 #' 
 #' ## incidence data & coverage-based
 #' data(beetle_inc)
-#' output2 = iNEXTBetaDiv(data = beetle_inc, datatype = 'incidence_raw', level = seq(0.8, 1, 0.05),
+#' output2 = iNEXTBetaDiv(data = beetle_inc, datatype = 'incidence_raw',
 #'                        nboot = 20, conf = 0.95)
 #' output2
 #' 
@@ -80,7 +80,8 @@ iNEXTBetaDiv = function(data, q = c(0, 1, 2), datatype = 'abundance', base = "co
   if (is.null(conf)) conf = 0.95
   tmp = qnorm(1 - (1 - conf)/2)
   
-  if ( is.null(level) & base == 'coverage' ) level = seq(0.7, 1, 0.05) else if ( base == 'size' ) {
+  trunc = ifelse(is.null(level), T, F)
+  if ( is.null(level) & base == 'coverage' ) level = seq(0.6, 1, 0.05) else if ( base == 'size' ) {
     if ( is.null(level) ) {
       
       if (datatype == "abundance") {
@@ -390,6 +391,24 @@ iNEXTBetaDiv = function(data, q = c(0, 1, 2), datatype = 'abundance', base = "co
                              UCL = Estimate + tmp * se$S,
                              Region = region_name)
     
+    if (trunc) {
+      
+      gamma = gamma %>% filter(!(Order==0 & round(Size)>2*n))
+      
+      alpha = alpha %>% filter(!(Order==0 & round(Size)>2*n))
+      
+      beta  = beta  %>% filter(!(Order==0 & round(Size)>2*n))
+      
+      C     = C     %>% filter(!(Order==0 & round(Size)>2*n))
+      
+      U     = U     %>% filter(!(Order==0 & round(Size)>2*n))
+      
+      V     = V     %>% filter(!(Order==0 & round(Size)>2*n))
+      
+      S     = S     %>% filter(!(Order==0 & round(Size)>2*n))
+      
+    }
+    
     list(gamma = gamma, alpha = alpha, beta = beta, C = C, U = U, V = V, S = S)
     
   }
@@ -579,36 +598,36 @@ iNEXTBetaDiv = function(data, q = c(0, 1, 2), datatype = 'abundance', base = "co
 #' @return a figure for Beta diversity or dissimilarity diversity.
 #' 
 #' @examples
-#' ## abundance data
+#' ## abundance data & coverage-based
 #' data(beetle_abu)
-#' output1 = iNEXTBetaDiv(data = beetle_abu, datatype = 'abundance', level = seq(0.8, 1, 0.05), 
-#'                        nboot = 20)
+#' output1 = iNEXTBetaDiv(data = beetle_abu, datatype = 'abundance', 
+#'                        nboot = 20, conf = 0.95)
 #' 
 #' ggiNEXTBetaDiv(output1, type = 'B', scale = 'free', main = NULL, transp = 0.4)
 #' ggiNEXTBetaDiv(output1, type = 'D', scale = 'free', main = NULL, transp = 0.4)
 #' 
 #' 
-#' ## incidence data
+#' ## incidence data & coverage-based
 #' data(beetle_inc)
-#' output2 = iNEXTBetaDiv(data = beetle_inc, datatype = 'incidence_raw', level = seq(0.8, 1, 0.05),
+#' output2 = iNEXTBetaDiv(data = beetle_inc, datatype = 'incidence_raw', 
 #'                        nboot = 20, conf = 0.95)
 #' 
 #' ggiNEXTBetaDiv(output2, type = 'B', scale = 'free', main = NULL, transp = 0.4)
 #' ggiNEXTBetaDiv(output2, type = 'D', scale = 'free', main = NULL, transp = 0.4)
 #' 
 #' 
-#' #' ## abundance data & size-based
+#' ## abundance data & size-based
 #' data(beetle_abu)
-#' output3 = iNEXTBetaDiv(data = beetle_abu, datatype = 'abundance', base = 'size',
+#' output3 = iNEXTBetaDiv(data = beetle_abu, datatype = 'abundance', base = 'size', 
 #'                        nboot = 20, conf = 0.95)
 #' ggiNEXTBetaDiv(output3, scale = 'free', main = NULL, transp = 0.4)
 #' 
 #' 
 #' ## incidence data & size-based
 #' data(beetle_inc)
-#' output4 = iNEXTBetaDiv(data = beetle_inc, datatype = 'incidence_raw', base = 'size',
+#' output4 = iNEXTBetaDiv(data = beetle_inc, datatype = 'incidence_raw', base = 'size', 
 #'                        nboot = 20, conf = 0.95)
-#' ggiNEXTBetaDiv(output4, type = 'B', scale = 'free', main = NULL, transp = 0.4)
+#' ggiNEXTBetaDiv(output4, scale = 'free', main = NULL, transp = 0.4)
 #' 
 #' 
 #' @export
@@ -623,22 +642,22 @@ ggiNEXTBetaDiv = function(output, type = 'B', scale = 'free', main = NULL, trans
       beta = beta %>% filter(Method != 'Observed')
       beta[beta == 'Observed_alpha'] = 'Observed'
       
-      # Dropping out the points extrapolated over double reference size
-      gamma1 = data.frame() ; alpha1 = data.frame() ; beta1 = data.frame()
-      
-      for(i in 1:length(unique(gamma$Region))){
-        
-        Gamma <- gamma %>% filter(Region==unique(gamma$Region)[i]) ; ref_size = unique(Gamma[Gamma$Method=="Observed",]$Size)
-        Gamma = Gamma %>% filter(!(Order==0 & round(Size)>2*ref_size))
-        
-        Alpha <- alpha %>% filter(Region==unique(gamma$Region)[i]) ; Alpha = Alpha %>% filter(!(Order==0 & round(Size)>2*ref_size))
-        Beta <- beta %>% filter(Region==unique(gamma$Region)[i]) ; Beta = Beta %>% filter(!(Order==0 & round(Size)>2*ref_size))
-        
-        gamma1 = rbind(gamma1,Gamma) ; alpha1 = rbind(alpha1,Alpha) ; beta1 = rbind(beta1,Beta)
-        
-      }
-      
-      gamma = gamma1 ; alpha = alpha1 ; beta= beta1
+      # # Dropping out the points extrapolated over double reference size
+      # gamma1 = data.frame() ; alpha1 = data.frame() ; beta1 = data.frame()
+      # 
+      # for(i in 1:length(unique(gamma$Region))){
+      #   
+      #   Gamma <- gamma %>% filter(Region==unique(gamma$Region)[i]) ; ref_size = unique(Gamma[Gamma$Method=="Observed",]$Size)
+      #   Gamma = Gamma %>% filter(!(Order==0 & round(Size)>2*ref_size))
+      #   
+      #   Alpha <- alpha %>% filter(Region==unique(gamma$Region)[i]) ; Alpha = Alpha %>% filter(!(Order==0 & round(Size)>2*ref_size))
+      #   Beta <- beta %>% filter(Region==unique(gamma$Region)[i]) ; Beta = Beta %>% filter(!(Order==0 & round(Size)>2*ref_size))
+      #   
+      #   gamma1 = rbind(gamma1,Gamma) ; alpha1 = rbind(alpha1,Alpha) ; beta1 = rbind(beta1,Beta)
+      #   
+      # }
+      # 
+      # gamma = gamma1 ; alpha = alpha1 ; beta= beta1
       
       df = rbind(gamma, alpha, beta)
       for (i in unique(gamma$Order)) df$Order[df$Order == i] = paste0('q = ', i)
@@ -676,23 +695,23 @@ ggiNEXTBetaDiv = function(output, type = 'B', scale = 'free', main = NULL, trans
       S = S %>% filter(Method != 'Observed')
       C[C == 'Observed_alpha'] = U[U == 'Observed_alpha'] = V[V == 'Observed_alpha'] = S[S == 'Observed_alpha'] = 'Observed'
       
-      # Dropping out the points extrapolated over double reference size
-      c1 = data.frame() ; u1 = data.frame() ; v1 = data.frame() ; s1 = data.frame()
-      
-      for(i in 1:length(unique(C$Region))){
-        
-        CC <- C %>% filter(Region==unique(C$Region)[i]) ; ref_size = unique(CC[CC$Method=="Observed",]$Size)
-        CC = CC %>% filter(!(Order==0 & round(Size)>2*ref_size))
-        
-        UU <- U %>% filter(Region==unique(C$Region)[i]) ; UU = UU %>% filter(!(Order==0 & round(Size)>2*ref_size))
-        VV <- V %>% filter(Region==unique(C$Region)[i]) ; VV = VV %>% filter(!(Order==0 & round(Size)>2*ref_size))
-        SS <- S %>% filter(Region==unique(C$Region)[i]) ; SS = SS %>% filter(!(Order==0 & round(Size)>2*ref_size))
-        
-        c1 = rbind(c1,CC) ; u1 = rbind(u1,UU) ; v1 = rbind(v1,VV) ; s1 = rbind(s1,SS)
-        
-      }
-      
-      C = c1 ; U = u1 ; V = v1 ; S = s1
+      # # Dropping out the points extrapolated over double reference size
+      # c1 = data.frame() ; u1 = data.frame() ; v1 = data.frame() ; s1 = data.frame()
+      # 
+      # for(i in 1:length(unique(C$Region))){
+      #   
+      #   CC <- C %>% filter(Region==unique(C$Region)[i]) ; ref_size = unique(CC[CC$Method=="Observed",]$Size)
+      #   CC = CC %>% filter(!(Order==0 & round(Size)>2*ref_size))
+      #   
+      #   UU <- U %>% filter(Region==unique(C$Region)[i]) ; UU = UU %>% filter(!(Order==0 & round(Size)>2*ref_size))
+      #   VV <- V %>% filter(Region==unique(C$Region)[i]) ; VV = VV %>% filter(!(Order==0 & round(Size)>2*ref_size))
+      #   SS <- S %>% filter(Region==unique(C$Region)[i]) ; SS = SS %>% filter(!(Order==0 & round(Size)>2*ref_size))
+      #   
+      #   c1 = rbind(c1,CC) ; u1 = rbind(u1,UU) ; v1 = rbind(v1,VV) ; s1 = rbind(s1,SS)
+      #   
+      # }
+      # 
+      # C = c1 ; U = u1 ; V = v1 ; S = s1
       
       
       df = rbind(C, U, V, S)
@@ -745,6 +764,9 @@ ggiNEXTBetaDiv = function(output, type = 'B', scale = 'free', main = NULL, trans
     
   } else if (length(output[[1]]) == 2){
     
+    cbPalette <- rev(c("#999999", "#E69F00", "#56B4E9", "#009E73", 
+                       "#330066", "#CC79A7", "#0072B2", "#D55E00"))
+    
     gamma = lapply(output, function(y) y[["gamma"]]) %>% do.call(rbind,.) %>% mutate(div_type = "Gamma") %>% as_tibble()
     alpha = lapply(output, function(y) y[["alpha"]]) %>% do.call(rbind,.) %>% mutate(div_type = "Alpha") %>% as_tibble()
     
@@ -790,6 +812,8 @@ ggiNEXTBetaDiv = function(output, type = 'B', scale = 'free', main = NULL, trans
       geom_point(data = subset(df, Method == 'Observed' & div_type != "Gamma"), shape = 1, size = 3, stroke = 1.5)+
       geom_point(data = subset(double_extrapolation, div_type == "Gamma"), shape = 17, size = 3) + 
       geom_point(data = subset(double_extrapolation, div_type != "Gamma"), shape = 2, size = 3, stroke = 1.5) + 
+      scale_colour_manual(values = cbPalette) + 
+      scale_fill_manual(values = cbPalette) + 
       facet_grid(div_type ~ Order, scales = scale) +
       theme_bw() + 
       theme(legend.position = "bottom", legend.title = element_blank()) +
