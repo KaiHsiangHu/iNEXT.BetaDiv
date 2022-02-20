@@ -81,7 +81,7 @@ iNEXTBetaDiv = function(data, q = c(0, 1, 2), datatype = 'abundance', base = "co
   tmp = qnorm(1 - (1 - conf)/2)
   
   trunc = ifelse(is.null(level), T, F)
-  if ( is.null(level) & base == 'coverage' ) level = seq(0.6, 1, 0.05) else if ( base == 'size' ) {
+  if ( is.null(level) & base == 'coverage' ) level = seq(0.5, 1, 0.05) else if ( base == 'size' ) {
     if ( is.null(level) ) {
       
       if (datatype == "abundance") {
@@ -399,13 +399,13 @@ iNEXTBetaDiv = function(data, q = c(0, 1, 2), datatype = 'abundance', base = "co
       
       beta  = beta  %>% filter(!(Order==0 & round(Size)>2*n))
       
-      C     = C     %>% filter(!(Order==0 & round(Size)>2*n))
+       C    =  C    %>% filter(!(Order==0 & round(Size)>2*n))
       
-      U     = U     %>% filter(!(Order==0 & round(Size)>2*n))
+       U    =  U    %>% filter(!(Order==0 & round(Size)>2*n))
       
-      V     = V     %>% filter(!(Order==0 & round(Size)>2*n))
+       V    =  V    %>% filter(!(Order==0 & round(Size)>2*n))
       
-      S     = S     %>% filter(!(Order==0 & round(Size)>2*n))
+       S    =  S    %>% filter(!(Order==0 & round(Size)>2*n))
       
     }
     
@@ -616,7 +616,7 @@ iNEXTBetaDiv = function(data, q = c(0, 1, 2), datatype = 'abundance', base = "co
 #' ggiNEXTBetaDiv(output2, type = 'D', scale = 'free', main = NULL, transp = 0.4)
 #' 
 #' 
-#' ## abundance data & size-based
+#'  ## abundance data & size-based
 #' data(beetle_abu)
 #' output3 = iNEXTBetaDiv(data = beetle_abu, datatype = 'abundance', base = 'size', 
 #'                        nboot = 20, conf = 0.95)
