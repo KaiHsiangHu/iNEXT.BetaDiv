@@ -15,20 +15,22 @@ iNEXTBetaDiv(
 )
 }
 \arguments{
-\item{data}{(a) For \code{datatype = "abundance"}, data can be input as a matrix/data.frame (a region with species by assemblages), or a list (multiple regions) of several matrices/data.frames (species by assemblages).\cr
-(b) For \code{datatype = "incidence_raw"}, data can be input as a list of several lists (regions)  contained matrices/data.frames (species by sampling units).}
+\item{data}{(a) For \code{datatype = "abundance"}, data can be input as a \code{matrix/data.frame} (species by assemblages), or a \code{list} of \code{matrices/data.frames}, each matrix represents species-by-assemblages abundance matrix; see Note 1 for examples.\cr
+(b) For \code{datatype = "incidence_raw"}, data can be input as a \code{list} of \code{matrices/data.frames}, each matrix represents species-by-sampling units; see Note 2 for an example.}
 
 \item{q}{a numerical vector specifying the diversity orders. Default is c(0, 1, 2).}
 
-\item{datatype}{data type of input data: individual-based abundance data (\code{datatype = "abundance"}) or species by sampling-units incidence matrix (\code{datatype = "incidence_raw"}) with all entries being 0 (non-detection) or 1 (detection).}
+\item{datatype}{data type of input data: individual-based abundance data (\code{datatype = "abundance"}) or species by sampling-units incidence matrix (\code{datatype = "incidence_raw"}) with all entries being \code{0} (non-detection) or \code{1} (detection).}
 
 \item{base}{Sample-sized-based rarefaction and extrapolation for gamma and alpha diversity (\code{base = "size"}) or coverage-based rarefaction and extrapolation for gamma, alpha and beta diversity (\code{base = "coverage"}). Default is \code{base = "coverage"}.}
 
-\item{level}{A numerical vector specifying the particular sample coverages (between 0 and 1). Calculating asymptotic diversity if \code{level = 1}. \cr}
+\item{level}{A numerical vector specifying the particular value of sample coverage (between 0 and 1 when \code{base = "coverage"}) or sample size (\code{base = "size"}). \code{level = 1} (\code{base = "coverage"}) means complete coverage (the corresponding diversity represents asymptotic diversity).\cr
+If \code{base = "size"} and \code{level = NULL}, then this function computes the gamma and alpha diversity estimates up to double the reference sample size. If \code{base = "coverage"} and \code{level = NULL}, then this function computes the gamma and alpha diversity estimates up to one (for \code{q = 1, 2}) or up to the coverage of double the reference sample size (for \code{q = 0});\cr 
+the corresponding beta diversity is computed up to the same maximum coverage as the alpha diversity.}
 
-\item{nboot}{a positive integer specifying the number of bootstrap replications when assessing sampling uncertainty and constructing confidence intervals. Enter 0 to skip the bootstrap procedures. Default is 20.}
+\item{nboot}{a positive integer specifying the number of bootstrap replications when assessing sampling uncertainty and constructing confidence intervals. Bootstrap replications are generally time consuming. Enter \code{0} to skip the bootstrap procedures. Default is \code{20}. If more accurate results are required, set \code{nboot = 100} (or \code{200}).}
 
-\item{conf}{a positive number < 1 specifying the level of confidence interval. Default is 0.95.}
+\item{conf}{a positive number < 1 specifying the level of confidence interval. Default is \code{0.95}.}
 }
 \value{
 A list of seven lists with three-diversity and four-dissimilarity.
