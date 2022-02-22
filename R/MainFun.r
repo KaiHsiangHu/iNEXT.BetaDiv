@@ -550,7 +550,7 @@ iNEXTBetaDiv = function(data, q = c(0, 1, 2), datatype = 'abundance', base = "co
       
     } else {
       
-      se = matrix(0, ncol = 7, nrow = nrow(beta))
+      se = matrix(0, ncol = 2, nrow = nrow(gamma))
       colnames(se) = c("gamma", "alpha")
       se = as.data.frame(se)
       
