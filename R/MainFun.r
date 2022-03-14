@@ -57,7 +57,7 @@
 #' 
 #' @export
 iNEXTBetaDiv = function(data, q = c(0, 1, 2), datatype = 'abundance', base = "coverage", level = NULL, nboot = 20, conf = 0.95) {
-  if (base == "coverage" & is.null(level)) max_alpha_coverage = T else max_alpha_coverage = F
+  max_alpha_coverage = F
   if (datatype == 'abundance') {
     
     if( class(data) == "data.frame" | class(data) == "matrix" ) data = list(Region_1 = data)
@@ -214,6 +214,11 @@ iNEXTBetaDiv = function(data, q = c(0, 1, 2), datatype = 'abundance', base = "co
     # for (i in 0:2) gamma$Order[gamma$Order==paste0('q = ', i)] = i
     # gamma$Order = as.numeric(gamma$Order)
     
+    if (max_alpha_coverage == T) under_max_alpha = !((gamma$Order == 0) & (gamma$level > ref_alpha_max)) else under_max_alpha = gamma$level > 0
+    gamma = gamma[under_max_alpha,]
+    
+    
+    
     alpha = (cbind(level = rep(level, each = length(q)), alpha[,-c(1,2,8,9)]) %>% 
                mutate(Method = ifelse(level >= ref_alpha, ifelse(level == ref_alpha, 'Observed', 'Extrapolated'), 'Interpolated'))
     )[,c(6,5,4,1,2,3)] %>% set_colnames(c('Estimate', 'Order', 'Method', 'level', 'Coverage_real', 'Size'))
@@ -223,20 +228,15 @@ iNEXTBetaDiv = function(data, q = c(0, 1, 2), datatype = 'abundance', base = "co
     # for (i in 0:2) alpha$Order[alpha$Order == paste0('q = ', i)] = i
     # alpha$Order = as.numeric(alpha$Order)
     
-    
-    obs.beta = cbind(gamma %>% filter(Method == "Observed") %>% select(Estimate) / alpha %>% filter(Method == "Observed") %>% select(Estimate), 
-                     Order = q, Method = "Observed", level = NA, Coverage_real = NA, Size = gamma[gamma$Method == "Observed", 'Size'])
-    
-    if (max_alpha_coverage == T) under_max_alpha = !((gamma$Order == 0) & (gamma$level > ref_alpha_max)) else under_max_alpha = gamma$level > 0
-    gamma = gamma[under_max_alpha,]
-    
     alpha = alpha[under_max_alpha,]
+    
     
     
     beta = alpha
     beta$Estimate = gamma$Estimate/alpha$Estimate
     beta[beta == "Observed"] = "Observed_alpha"
-    beta = beta %>% rbind(., obs.beta)
+    beta = beta %>% rbind(., cbind(gamma %>% filter(Method == "Observed") %>% select(Estimate) / alpha %>% filter(Method == "Observed") %>% select(Estimate), 
+                                   Order = q, Method = "Observed", level = NA, Coverage_real = NA, Size = beta[beta$Method == "Observed_alpha", 'Size']))
     
     C = beta %>% mutate(Estimate = ifelse(Order==1, log(Estimate)/log(N), (Estimate^(1-Order) - 1)/(N^(1-Order)-1)))
     U = beta %>% mutate(Estimate = ifelse(Order==1, log(Estimate)/log(N), (Estimate^(Order-1) - 1)/(N^(Order-1)-1)))
