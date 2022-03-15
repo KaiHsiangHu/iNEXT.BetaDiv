@@ -82,7 +82,8 @@ iNEXTBetaDiv = function(data, q = c(0, 1, 2), datatype = 'abundance', base = "co
   if (is.null(conf)) conf = 0.95
   tmp = qnorm(1 - (1 - conf)/2)
   
-  trunc = ifelse(is.null(level), T, F)
+  # trunc = ifelse(is.null(level), T, F)
+  trunc = T
   if ( is.null(level) & base == 'coverage' ) level = seq(0.5, 1, 0.05) else if ( base == 'size' ) {
     if ( is.null(level) ) {
       
