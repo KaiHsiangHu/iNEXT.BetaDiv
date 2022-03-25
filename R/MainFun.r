@@ -2,8 +2,8 @@
 #' 
 #' \code{iNEXTBetaDiv}: Interpolation and extrapolation of Beta diversity with order q
 #' 
-#' @param data (a) For \code{datatype = "abundance"}, data can be input as a \code{matrix/data.frame} (species by assemblages), or a \code{list} of \code{matrices/data.frames}, each matrix represents species-by-assemblages abundance matrix; see Note 1 for examples.\cr
-#' (b) For \code{datatype = "incidence_raw"}, data can be input as a \code{list} of \code{matrices/data.frames}, each matrix represents species-by-sampling units; see Note 2 for an example.
+#' @param data (a) For \code{datatype = "abundance"}, data can be input as a \code{matrix/data.frame} (species by assemblages), or a \code{list} of \code{matrices/data.frames}, each matrix represents species-by-assemblages abundance matrix.\cr
+#' (b) For \code{datatype = "incidence_raw"}, data can be input as a \code{list} of \code{matrices/data.frames}, each matrix represents species-by-sampling units.
 #' @param q a numerical vector specifying the diversity orders. Default is c(0, 1, 2).
 #' @param datatype data type of input data: individual-based abundance data (\code{datatype = "abundance"}) or species by sampling-units incidence matrix (\code{datatype = "incidence_raw"}) with all entries being \code{0} (non-detection) or \code{1} (detection).
 #' @param base Sample-sized-based rarefaction and extrapolation for gamma and alpha diversity (\code{base = "size"}) or coverage-based rarefaction and extrapolation for gamma, alpha and beta diversity (\code{base = "coverage"}). Default is \code{base = "coverage"}.
