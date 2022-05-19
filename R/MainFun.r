@@ -354,6 +354,25 @@ iNEXTBetaDiv = function(data, q = c(0, 1, 2), datatype = 'abundance', base = "co
     }
     
     
+    if (nboot>0 & datatype == 'abundance') {
+      gamma.se = estimate3D(data_gamma, diversity = 'TD', q = q, datatype = datatype, base = "coverage", level = level, nboot = nboot) %>% arrange(., goalSC, Order.q) %>% select(s.e.) %>% unlist
+      
+      alpha.se = estimate3D(data_alpha, diversity = 'TD', q = q, datatype = datatype, base = "coverage", level = level, nboot = nboot) %>% arrange(., goalSC, Order.q) %>% select(s.e.) %>% unlist
+      alpha.se = alpha.se / N
+      
+    } else if (nboot>0 & datatype == 'incidence_raw') {
+      
+      gamma.se = estimate3D(data_gamma_freq, diversity = 'TD', q = q, datatype = 'incidence_freq', base = "coverage", level = level, nboot = nboot) %>% arrange(., goalSC, Order.q) %>% select(s.e.) %>% unlist
+      
+      alpha.se = estimate3D(data_alpha_freq, diversity = 'TD', q = q, datatype = 'incidence_freq', base = "coverage", level = level, nboot = nboot) %>% arrange(., goalSC, Order.q) %>% select(s.e.) %>% unlist
+      alpha.se = alpha.se / N
+      
+    }
+    
+    se[1:( length(level) * length(q) ), 'gamma'] = gamma.se
+    
+    se[1:( length(level) * length(q) ), 'alpha'] = alpha.se
+    
     
     se = as.data.frame(se)
     
@@ -453,27 +472,24 @@ iNEXTBetaDiv = function(data, q = c(0, 1, 2), datatype = 'abundance', base = "co
     
     if (datatype == 'abundance') {
       
-      gamma = lapply(1:length(level), function(i){
-        estimate3D(as.numeric(data_gamma), diversity = 'TD', q = q, datatype = "abundance", base = "size", level = level[i], nboot = 0)
-      }) %>% do.call(rbind,.)
+      gamma = estimate3D(as.numeric(data_gamma), diversity = 'TD', q = q, datatype = "abundance", base = "size", level = level, nboot = nboot) %>% arrange(., SC, Order.q)
       
-      alpha = lapply(1:length(level), function(i){
-        estimate3D(as.numeric(data_alpha), diversity = 'TD', q = q, datatype = "abundance", base = "size", level = level[i], nboot = 0)
-      }) %>% do.call(rbind,.)
+      alpha = estimate3D(as.numeric(data_alpha), diversity = 'TD', q = q, datatype = "abundance", base = "size", level = level, nboot = nboot) %>% arrange(., SC, Order.q)
       
     }
     
     if (datatype == 'incidence_raw') {
       
-      gamma = lapply(1:length(level), function(i){
-        estimate3D(as.numeric(data_gamma_freq), diversity = 'TD', q = q, datatype = "incidence_freq", base = "size", level = level[i], nboot = 0)
-      }) %>% do.call(rbind,.)
+      gamma = estimate3D(as.numeric(data_gamma_freq), diversity = 'TD', q = q, datatype = "incidence_freq", base = "size", level = level, nboot = nboot) %>% arrange(., SC, Order.q)
       
-      alpha = lapply(1:length(level), function(i){
-        estimate3D(data_alpha_freq, diversity = 'TD', q = q, datatype = "incidence_freq", base = "size", level = level[i], nboot = 0)
-      }) %>% do.call(rbind,.)
+      alpha = estimate3D(data_alpha_freq, diversity = 'TD', q = q, datatype = "incidence_freq", base = "size", level = level, nboot = nboot) %>% arrange(., SC, Order.q)
       
     }
+    
+    se = cbind(gamma$s.e., alpha$s.e. / N)
+    colnames(se) = c("gamma", "alpha")
+    se = as.data.frame(se)
+    se[is.na(se)] = 0
     
     gamma = (cbind(Size = rep(level, each=length(q)), gamma[,-c(1,2,8,9)]) %>% 
                mutate(Method = ifelse(Size>=ref_gamma, ifelse(Size == ref_gamma, 'Observed', 'Extrapolated'), 'Interpolated'))
@@ -486,75 +502,75 @@ iNEXTBetaDiv = function(data, q = c(0, 1, 2), datatype = 'abundance', base = "co
     
     alpha$Estimate = alpha$Estimate / N
     
-    if(nboot>1){
-      
-      se = future_lapply(1:nboot, function(i){
-        
-        if (datatype == 'abundance') {
-          
-          bootstrap_population = bootstrap_population_multiple_assemblage(data, data_gamma, 'abundance')
-          bootstrap_sample = sapply(1:ncol(data), function(k) rmultinom(n = 1, size = sum(data[,k]), prob = bootstrap_population[,k]))
-          
-          bootstrap_data_gamma = rowSums(bootstrap_sample)
-          bootstrap_data_gamma = bootstrap_data_gamma[bootstrap_data_gamma > 0]
-          bootstrap_data_alpha = as.matrix(bootstrap_sample) %>% as.vector
-          bootstrap_data_alpha = bootstrap_data_alpha[bootstrap_data_alpha > 0]
-          
-          gamma = lapply(1:length(level), function(i){
-            estimate3D(as.numeric(bootstrap_data_gamma), diversity = 'TD', q = q, datatype = "abundance", base = "size", level = level[i], nboot = 0)
-          }) %>% do.call(rbind,.)
-          
-          alpha = lapply(1:length(level), function(i){
-            estimate3D(as.numeric(bootstrap_data_alpha), diversity = 'TD', q = q, datatype = "abundance", base = "size", level = level[i], nboot = 0)
-          }) %>% do.call(rbind,.)
-          
-        }
-        
-        if (datatype == 'incidence_raw') {
-          
-          bootstrap_population = bootstrap_population_multiple_assemblage(data_2D, data_gamma_freq, 'incidence')
-          
-          raw = lapply(1:ncol(bootstrap_population), function(j){
-            
-            lapply(1:nrow(bootstrap_population), function(i) rbinom(n = n, size = 1, prob = bootstrap_population[i,j])) %>% do.call(rbind,.)
-            
-          })
-          
-          gamma = Reduce('+', raw)
-          gamma[gamma > 1] = 1
-          bootstrap_data_gamma_freq = c(n, rowSums(gamma))
-          
-          bootstrap_data_alpha_freq = sapply(raw, rowSums) %>% c(n, .)
-          
-          bootstrap_data_gamma_freq = bootstrap_data_gamma_freq[bootstrap_data_gamma_freq > 0]
-          bootstrap_data_alpha_freq = bootstrap_data_alpha_freq[bootstrap_data_alpha_freq > 0]
-          
-          gamma = lapply(1:length(level), function(i){
-            estimate3D(bootstrap_data_gamma_freq, diversity = 'TD', q = q, datatype = "incidence_freq", base = "size", level = level[i], nboot = 0)
-          }) %>% do.call(rbind,.)
-          
-          alpha = lapply(1:length(level), function(i){
-            estimate3D(bootstrap_data_alpha_freq, diversity = 'TD', q = q, datatype = "incidence_freq", base = "size", level = level[i], nboot = 0)
-          }) %>% do.call(rbind,.)
-          
-        }
-        
-        gamma = gamma$qD
-        
-        alpha = alpha$qD
-        alpha = alpha / N
-        
-        cbind(gamma, alpha) %>% as.matrix
-        
-      }) %>% abind(along = 3) %>% apply(1:2, sd)
-      
-    } else {
-      
-      se = matrix(0, ncol = 2, nrow = nrow(gamma))
-      colnames(se) = c("gamma", "alpha")
-      se = as.data.frame(se)
-      
-    }
+    # if(nboot>1){
+    #   
+    #   se = future_lapply(1:nboot, function(i){
+    #     
+    #     if (datatype == 'abundance') {
+    #       
+    #       bootstrap_population = bootstrap_population_multiple_assemblage(data, data_gamma, 'abundance')
+    #       bootstrap_sample = sapply(1:ncol(data), function(k) rmultinom(n = 1, size = sum(data[,k]), prob = bootstrap_population[,k]))
+    #       
+    #       bootstrap_data_gamma = rowSums(bootstrap_sample)
+    #       bootstrap_data_gamma = bootstrap_data_gamma[bootstrap_data_gamma > 0]
+    #       bootstrap_data_alpha = as.matrix(bootstrap_sample) %>% as.vector
+    #       bootstrap_data_alpha = bootstrap_data_alpha[bootstrap_data_alpha > 0]
+    #       
+    #       gamma = lapply(1:length(level), function(i){
+    #         estimate3D(as.numeric(bootstrap_data_gamma), diversity = 'TD', q = q, datatype = "abundance", base = "size", level = level[i], nboot = 0)
+    #       }) %>% do.call(rbind,.)
+    #       
+    #       alpha = lapply(1:length(level), function(i){
+    #         estimate3D(as.numeric(bootstrap_data_alpha), diversity = 'TD', q = q, datatype = "abundance", base = "size", level = level[i], nboot = 0)
+    #       }) %>% do.call(rbind,.)
+    #       
+    #     }
+    #     
+    #     if (datatype == 'incidence_raw') {
+    #       
+    #       bootstrap_population = bootstrap_population_multiple_assemblage(data_2D, data_gamma_freq, 'incidence')
+    #       
+    #       raw = lapply(1:ncol(bootstrap_population), function(j){
+    #         
+    #         lapply(1:nrow(bootstrap_population), function(i) rbinom(n = n, size = 1, prob = bootstrap_population[i,j])) %>% do.call(rbind,.)
+    #         
+    #       })
+    #       
+    #       gamma = Reduce('+', raw)
+    #       gamma[gamma > 1] = 1
+    #       bootstrap_data_gamma_freq = c(n, rowSums(gamma))
+    #       
+    #       bootstrap_data_alpha_freq = sapply(raw, rowSums) %>% c(n, .)
+    #       
+    #       bootstrap_data_gamma_freq = bootstrap_data_gamma_freq[bootstrap_data_gamma_freq > 0]
+    #       bootstrap_data_alpha_freq = bootstrap_data_alpha_freq[bootstrap_data_alpha_freq > 0]
+    #       
+    #       gamma = lapply(1:length(level), function(i){
+    #         estimate3D(bootstrap_data_gamma_freq, diversity = 'TD', q = q, datatype = "incidence_freq", base = "size", level = level[i], nboot = 0)
+    #       }) %>% do.call(rbind,.)
+    #       
+    #       alpha = lapply(1:length(level), function(i){
+    #         estimate3D(bootstrap_data_alpha_freq, diversity = 'TD', q = q, datatype = "incidence_freq", base = "size", level = level[i], nboot = 0)
+    #       }) %>% do.call(rbind,.)
+    #       
+    #     }
+    #     
+    #     gamma = gamma$qD
+    #     
+    #     alpha = alpha$qD
+    #     alpha = alpha / N
+    #     
+    #     cbind(gamma, alpha) %>% as.matrix
+    #     
+    #   }) %>% abind(along = 3) %>% apply(1:2, sd)
+    #   
+    # } else {
+    #   
+    #   se = matrix(0, ncol = 2, nrow = nrow(gamma))
+    #   colnames(se) = c("gamma", "alpha")
+    #   se = as.data.frame(se)
+    #   
+    # }
     
     se = as.data.frame(se)
     
