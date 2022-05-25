@@ -367,6 +367,8 @@ iNEXTBetaDiv = function(data, q = c(0, 1, 2), datatype = 'abundance', base = "co
       alpha.se = estimate3D(data_alpha_freq, diversity = 'TD', q = q, datatype = 'incidence_freq', base = "coverage", level = level, nboot = nboot) %>% arrange(., goalSC, Order.q) %>% select(s.e.) %>% unlist
       alpha.se = alpha.se / N
       
+    } else {
+      gamma.se = alpha.se = 0
     }
     
     se[1:( length(level) * length(q) ), 'gamma'] = gamma.se
